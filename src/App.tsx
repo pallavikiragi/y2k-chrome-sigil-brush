@@ -13,6 +13,7 @@ import { DEFAULT_PARAMS, LIVE_PARAM_KEYS, PAL, SYMMETRY_MODES } from './constant
 import { RenderPipeline } from './core/renderPipeline';
 import { CanvasStage } from './components/CanvasStage';
 import { ControlPanel } from './components/ControlPanel';
+import { GlobalToolsDock } from './components/GlobalToolsDock';
 import { TimelineDeck } from './components/TimelineDeck';
 import { NoiseOverlay } from './components/NoiseOverlay';
 import { ShortcutsModal } from './components/ShortcutsModal';
@@ -75,6 +76,7 @@ export const App: React.FC = () => {
   const [canRedo, setCanRedo] = useState<boolean>(false);
 
   // Skeuomorphic Timeline Deck State
+  const [videoSectionEnabled, setVideoSectionEnabled] = useState<boolean>(true);
   const [timelineVisible, setTimelineVisible] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [replaySpeed, setReplaySpeed] = useState<number>(1);
@@ -101,6 +103,42 @@ export const App: React.FC = () => {
       toastTimerRef.current = null;
     }, 1200);
   }, []);
+
+  const handleToggleAnimation = useCallback(() => {
+    setAnimOn((value) => {
+      showToast(`Animation: ${value ? 'Off' : 'On'}`);
+      return !value;
+    });
+  }, [showToast]);
+
+  const handleToggle3D = useCallback(() => {
+    setMode3d((value) => {
+      showToast(`3D View: ${value ? 'Off' : 'On'}`);
+      return !value;
+    });
+  }, [showToast]);
+
+  const handleToggleOrbit = useCallback(() => {
+    setAutoOrbit((value) => {
+      showToast(`Auto Orbit: ${value ? 'Off' : 'On'}`);
+      return !value;
+    });
+  }, [showToast]);
+
+  const handleTogglePanMode = useCallback(() => {
+    setPanMode((value) => {
+      showToast(`Pan Tool: ${value ? 'Off' : 'On'}`);
+      return !value;
+    });
+  }, [showToast]);
+
+  const handleToggleEraser = useCallback(() => {
+    setToolMode((value) => {
+      const next = value === 'eraser' ? 'brush' : 'eraser';
+      showToast(next === 'eraser' ? 'Tool: Eraser (E)' : 'Tool: Brush (E)');
+      return next;
+    });
+  }, [showToast]);
 
   // Update theme colors and CSS variables
   const activeVibe = PAL[currentVibe] || PAL['Black Mercury'] || PAL['Pink K-Pop'];
@@ -848,10 +886,16 @@ export const App: React.FC = () => {
       // Toggle Chrono Timeline Deck (T)
       if (k === 't' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        setTimelineVisible((prev) => {
-          showToast(!prev ? 'Timeline Deck: Shown' : 'Timeline Deck: Hidden (T)');
-          return !prev;
-        });
+        if (!videoSectionEnabled) {
+          setVideoSectionEnabled(true);
+          setTimelineVisible(true);
+          showToast('Video Section: On');
+        } else {
+          setTimelineVisible((prev) => {
+            showToast(!prev ? 'Timeline Deck: Shown' : 'Timeline Deck: Hidden (T)');
+            return !prev;
+          });
+        }
         return;
       }
 
@@ -921,6 +965,7 @@ export const App: React.FC = () => {
     loadRefImage,
     shortcutsModalOpen,
     panMode,
+    videoSectionEnabled,
     showToast,
   ]);
 
@@ -1023,38 +1068,6 @@ export const App: React.FC = () => {
           onRedo={handleRedo}
           canRedo={canRedo}
           onClear={handleClear}
-          animOn={animOn}
-          onToggleAnim={() => {
-            setAnimOn((v) => {
-              showToast(!v ? 'Animation: On' : 'Animation: Off');
-              return !v;
-            });
-          }}
-          mode3d={mode3d}
-          onToggle3D={() => {
-            setMode3d((v) => {
-              showToast(!v ? '3D View: On' : '3D View: Off');
-              return !v;
-            });
-          }}
-          autoOrbit={autoOrbit}
-          onToggleOrbit={() => {
-            setAutoOrbit((v) => {
-              showToast(!v ? 'Auto Orbit: On' : 'Auto Orbit: Off');
-              return !v;
-            });
-          }}
-          zoomScale={view.scale}
-          onZoomIn={() => handleZoom(1.2)}
-          onZoomOut={() => handleZoom(0.83)}
-          onZoomReset={handleZoomReset}
-          panMode={panMode}
-          onTogglePanMode={() => {
-            setPanMode((v) => {
-              showToast(!v ? 'Pan Tool: On' : 'Pan Tool: Off');
-              return !v;
-            });
-          }}
           glowEnabled={glowEnabled}
           onToggleGlow={() => {
             setGlowEnabled((v) => {
@@ -1108,6 +1121,8 @@ export const App: React.FC = () => {
           onEraserModeChange={setEraserMode}
           onOpenShortcuts={() => setShortcutsModalOpen(true)}
           onOpenDocs={() => setDocsModalOpen(true)}
+          videoSectionEnabled={videoSectionEnabled}
+          onToggleVideoSection={() => setVideoSectionEnabled((enabled) => !enabled)}
           onToggleCollapse={() => {
             setPanelVisible(false);
             showToast('Panel: Hidden (Tab / P)');
@@ -1127,9 +1142,32 @@ export const App: React.FC = () => {
         </button>
       )}
 
+      <GlobalToolsDock
+        canUndo={historyState.currentStep > 0}
+        canRedo={historyState.totalSteps > historyState.currentStep}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        erasing={toolMode === 'eraser'}
+        onToggleErase={handleToggleEraser}
+        animationOn={animOn}
+        onToggleAnimation={handleToggleAnimation}
+        mode3d={mode3d}
+        onToggle3D={handleToggle3D}
+        orbitOn={autoOrbit}
+        onToggleOrbit={handleToggleOrbit}
+        zoomScale={view.scale}
+        onZoomIn={() => handleZoom(1.2)}
+        onZoomOut={() => handleZoom(0.83)}
+        onZoomReset={handleZoomReset}
+        panMode={panMode}
+        onTogglePan={handleTogglePanMode}
+        timelineVisible={videoSectionEnabled && timelineVisible}
+      />
+
       {toastMessage && <div className="hud-toast">{toastMessage}</div>}
 
       <TimelineDeck
+        enabled={videoSectionEnabled}
         currentStep={historyState.currentStep}
         totalSteps={historyState.totalSteps}
         currentLabel={historyState.currentLabel}
